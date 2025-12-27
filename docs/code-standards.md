@@ -1,6 +1,6 @@
 # Code Standards & Conventions
 
-**Last Updated:** 2025-12-27 (Phase 3 Chat Interface)
+**Last Updated:** 2025-12-27 (MVP Complete - All 7 Phases)
 **Project:** Cikgu Maya 3D
 
 ## Table of Contents
@@ -12,6 +12,8 @@
 6. [File Organization](#file-organization)
 7. [Naming Conventions](#naming-conventions)
 8. [Code Quality](#code-quality)
+9. [Voice Integration Standards](#voice-integration-standards)
+10. [AI Integration Standards](#ai-integration-standards)
 
 ## TypeScript Standards
 
@@ -583,6 +585,229 @@ const sendMessage = async () => {
     console.error('Failed to send message:', error)
     showErrorToast('Failed to send message')
   }
+}
+```
+
+---
+
+## Voice Integration Standards
+
+### Web Speech API
+
+**RULE**: Use Web Speech API for TTS, avoid external TTS services
+
+```typescript
+// ✅ GOOD: Web Speech API implementation
+const speak = (text: string) => {
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.rate = 0.9
+  utterance.pitch = 1.1
+  utterance.lang = 'en-MY'
+
+  // Try Malaysian English, fallback to any English
+  const voices = window.speechSynthesis.getVoices()
+  const malaysianVoice = voices.find((v) => v.lang === 'en-MY')
+  const englishVoice = voices.find((v) => v.lang.startsWith('en-'))
+
+  if (malaysianVoice) {
+    utterance.voice = malaysianVoice
+  } else if (englishVoice) {
+    utterance.voice = englishVoice
+  }
+
+  utterance.onstart = () => set({ isSpeaking: true })
+  utterance.onend = () => set({ isSpeaking: false })
+  utterance.onerror = () => set({ isSpeaking: false })
+
+  window.speechSynthesis.speak(utterance)
+}
+
+// ❌ BAD: External TTS service (adds cost, latency)
+const speak = async (text: string) => {
+  const response = await fetch('/api/tts', { method: 'POST', body: JSON.stringify({ text }) })
+  const audio = await response.blob()
+  // Play audio...
+}
+```
+
+### Voice State Management
+
+**RULE**: Track voice state in Zustand store, sync with animations
+
+```typescript
+// ✅ GOOD: Voice state in store
+interface ChatState {
+  voiceEnabled: boolean
+  isSpeaking: boolean
+
+  toggleVoice: () => void
+  speak: (text: string) => void
+  stopSpeaking: () => void
+}
+
+// Sync with character animation
+speak: (text) => {
+  if (!voiceEnabled) return
+
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.onstart = () => set({ isSpeaking: true, currentAnimation: 'talking' })
+  utterance.onend = () => set({ isSpeaking: false, currentAnimation: 'idle' })
+  utterance.onerror = () => set({ isSpeaking: false, currentAnimation: 'idle' })
+
+  window.speechSynthesis.speak(utterance)
+}
+```
+
+### Voice Toggle UI
+
+**RULE**: Provide clear visual feedback for voice state
+
+```typescript
+// ✅ GOOD: Voice toggle with icon feedback
+<button
+  onClick={toggleVoice}
+  className={`p-2 rounded-lg transition-colors ${
+    voiceEnabled
+      ? 'bg-maya-primary/10 text-maya-primary hover:bg-maya-primary/20'
+      : 'bg-maya-bg-gray text-maya-text-muted hover:bg-maya-bg-gray/80'
+  }`}
+  aria-label={voiceEnabled ? 'Mute voice' : 'Enable voice'}
+>
+  {voiceEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+</button>
+```
+
+---
+
+## AI Integration Standards
+
+### Response Engine Pattern
+
+**RULE**: Separate AI logic from UI components
+
+```typescript
+// ✅ GOOD: Dedicated response engine class
+export class MockResponseEngine {
+  getResponse(userMessage: string): {
+    text: string
+    emotion: EmotionType
+    animation: AnimationType
+    followUpPrompts: string[]
+  } {
+    // Logic here...
+  }
+}
+
+// ❌ BAD: AI logic mixed with component
+export function ChatPanel() {
+  const handleSend = (msg) => {
+    if (msg.includes('hello')) {
+      setEmotion('happy')
+      setAnimation('wave')
+      // ... mixed concerns
+    }
+  }
+}
+```
+
+### Custom Hook Pattern
+
+**RULE**: Use custom hooks to orchestrate AI + UI flow
+
+```typescript
+// ✅ GOOD: useChat hook orchestrates entire flow
+export function useChat() {
+  const store = useChatStore()
+
+  const sendMessage = async (content: string) => {
+    // 1. Add user message
+    store.addMessage({ role: 'user', content })
+
+    // 2. Show typing indicator
+    store.setTyping(true)
+
+    // 3. Simulate thinking delay
+    await new Promise((resolve) => setTimeout(resolve, 500 + Math.random() * 500))
+
+    // 4. Get AI response
+    const { text, emotion, animation, followUpPrompts } = responseEngine.getResponse(content)
+
+    // 5. Add assistant message
+    store.addMessage({ role: 'assistant', content: text, emotion, animation })
+
+    // 6. Update character state
+    store.setEmotion(emotion)
+    store.setAnimation(animation)
+
+    // 7. Hide typing indicator
+    store.setTyping(false)
+
+    // 8. Speak response
+    store.speak(text)
+
+    // 9. Return animation to idle after duration
+    if (animation !== 'idle' && animation !== 'talking') {
+      setTimeout(() => {
+        if (!store.isSpeaking) store.setAnimation('idle')
+      }, ANIMATION_DURATIONS[animation] ?? 2000)
+    }
+
+    return followUpPrompts
+  }
+
+  return { messages: store.messages, isTyping: store.isTyping, sendMessage }
+}
+```
+
+### Response Database
+
+**RULE**: Use structured response templates with metadata
+
+```typescript
+// ✅ GOOD: Structured response database
+export interface ResponseTemplate {
+  triggers: string[]           // Keywords to match
+  responses: string[]          // Random response options
+  emotion: EmotionType         // Character emotion
+  animation: AnimationType     // Character animation
+  followUpPrompts?: string[]   // Suggested next prompts
+}
+
+export const RESPONSE_DATABASE: Record<string, ResponseTemplate> = {
+  greetings: {
+    triggers: ['hello', 'hi', 'selamat'],
+    responses: ['Selamat pagi! 👋', 'Hello! Great to see you.'],
+    emotion: 'happy',
+    animation: 'wave',
+    followUpPrompts: ['Who needs my attention?', 'How is Form 4S1?'],
+  },
+  // ...
+}
+```
+
+### Animation Timing
+
+**RULE**: Define animation durations, auto-return to idle
+
+```typescript
+// ✅ GOOD: Duration constants with auto-reset
+const ANIMATION_DURATIONS: Record<AnimationType, number> = {
+  idle: 0,
+  talking: 0,
+  wave: 2000,
+  nod: 1500,
+  thinking: 3000,
+  pointing: 2000,
+}
+
+// Auto-reset after animation
+if (animation !== 'idle' && animation !== 'talking') {
+  const duration = ANIMATION_DURATIONS[animation] ?? 2000
+  setTimeout(() => {
+    if (!store.isSpeaking) {
+      store.setAnimation('idle')
+    }
+  }, duration)
 }
 ```
 

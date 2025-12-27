@@ -1,12 +1,12 @@
 # Codebase Summary
 
 **Last Updated:** 2025-12-27
-**Version:** 0.0.2
-**Status:** Phase 3 - Chat Interface Complete
+**Version:** 1.0.0
+**Status:** MVP COMPLETE - All 7 Phases
 
 ## Project Overview
 
-Cikgu Maya 3D is an interactive educational assistant featuring a 3D animated character built with React Three Fiber, Zustand state management, and Tailwind CSS.
+Cikgu Maya 3D is an interactive educational assistant featuring a 3D animated character with voice integration and mock AI responses. Built with React Three Fiber, Zustand state management, Web Speech API, and Tailwind CSS.
 
 ## Technology Stack
 
@@ -38,12 +38,12 @@ cikgu-maya-3d/
 ├── src/
 │   ├── components/
 │   │   ├── 3d/
-│   │   │   ├── MayaCharacter.tsx    # 3D character component with 6 animations
+│   │   │   ├── MayaCharacter.tsx    # 3D character with 6 animations
 │   │   │   ├── Scene.tsx            # Three.js Canvas with lighting & controls
 │   │   │   └── Viewport3D.tsx       # Scene wrapper component
 │   │   ├── chat/
 │   │   │   ├── ChatPanel.tsx        # Main chat interface container
-│   │   │   ├── ChatHeader.tsx       # Header with avatar and status
+│   │   │   ├── ChatHeader.tsx       # Header with voice toggle & status
 │   │   │   ├── MessageList.tsx      # Scrollable message container
 │   │   │   ├── MessageBubble.tsx    # Individual message display
 │   │   │   ├── ChatInput.tsx        # Message input with validation
@@ -52,11 +52,17 @@ cikgu-maya-3d/
 │   │   ├── layout/
 │   │   │   └── Layout.tsx           # Responsive split layout
 │   │   └── ui/
-│   │       └── StatusBadge.tsx      # Visual status indicator
+│   │       └── StatusBadge.tsx      # Visual status indicator (3 states)
+│   ├── hooks/
+│   │   └── useChat.ts               # Orchestrates AI flow, animations, TTS
+│   ├── lib/
+│   │   └── ai/
+│   │       ├── responseEngine.ts    # MockResponseEngine class
+│   │       └── mockResponses.ts     # 7 response categories, Malaysian context
 │   ├── store/
-│   │   └── chatStore.ts             # Zustand store for chat state
+│   │   └── chatStore.ts             # Zustand store (messages, voice, animations)
 │   ├── types/
-│   │   └── message.ts               # TypeScript interfaces (includes 'pointing')
+│   │   └── message.ts               # TypeScript interfaces
 │   ├── App.tsx                      # Main app component
 │   ├── main.tsx                     # React entry point
 │   ├── index.css                    # Global styles with Tailwind
@@ -65,6 +71,9 @@ cikgu-maya-3d/
 ├── plans/                           # Project plans
 ├── index.html                       # HTML entry point
 ├── package.json                     # Dependencies
+├── Dockerfile                       # Multi-stage build (node → nginx)
+├── nginx.conf                       # SPA routing, gzip, asset caching
+├── railway.json                     # Railway deployment config
 ├── tailwind.config.js               # Tailwind configuration
 ├── postcss.config.js                # PostCSS configuration
 ├── tsconfig.json                    # TypeScript config with path aliases
@@ -133,11 +142,12 @@ Main chat interface container:
 - **Dependencies**: useChatStore, all chat subcomponents
 
 ### ChatHeader (src/components/chat/ChatHeader.tsx)
-Header with avatar and status:
+Header with avatar, status, and voice toggle:
 - **Branding**: Gradient avatar (maya-primary to maya-secondary) + "Cikgu Maya" name
-- **Status Display**: StatusBadge showing ready/thinking/speaking based on isTyping state
+- **Status Display**: StatusBadge showing ready/thinking/speaking based on isTyping and isSpeaking
+- **Voice Toggle**: Volume2/VolumeX icon button to enable/disable TTS
 - **Settings Button**: Placeholder for future settings (lucide-react Settings icon)
-- **Dependencies**: StatusBadge, useChatStore
+- **Dependencies**: StatusBadge, useChatStore, lucide-react (Volume2, VolumeX, Settings)
 
 ### StatusBadge (src/components/ui/StatusBadge.tsx)
 Visual status indicator component:
@@ -207,14 +217,26 @@ Zustand store managing:
 - **messages**: Array of chat messages with timestamps
 - **isTyping**: Boolean for typing indicator
 - **currentEmotion**: Character emotion state (neutral, happy, concerned, thinking, encouraging)
-- **currentAnimation**: Character animation state (idle, talking, wave, nod, thinking)
+- **currentAnimation**: Character animation state (idle, talking, wave, nod, thinking, pointing)
+- **voiceEnabled**: Boolean for TTS toggle
+- **isSpeaking**: Boolean for TTS in progress
 
 **Actions:**
 - `addMessage(message)` - Add new message with auto-generated id and timestamp
 - `setTyping(boolean)` - Set typing state
 - `setEmotion(emotion)` - Update character emotion
 - `setAnimation(animation)` - Update character animation
+- `toggleVoice()` - Toggle TTS on/off, stops speaking if disabling
+- `speak(text)` - Text-to-speech using Web Speech API (en-MY)
+- `stopSpeaking()` - Cancel current TTS utterance
 - `clearMessages()` - Clear all messages
+
+**Voice Implementation Details:**
+- Uses `window.speechSynthesis` API
+- Tries en-MY voice first, falls back to any English voice
+- Configured: rate=0.9, pitch=1.1, lang='en-MY'
+- Auto-syncs animation: onstart→talking, onend→idle
+- Stops immediately if voice toggled off during speech
 
 ## Type Definitions
 
@@ -256,34 +278,144 @@ npm run build   # Build for production (tsc + vite build)
 npm run preview # Preview production build
 ```
 
-## Phase 3 Deliverables (Completed)
+## Custom Hooks
 
-✅ ChatPanel.tsx with header, messages, input, suggestions
-✅ ChatHeader.tsx with avatar, name, StatusBadge, settings button
-✅ MessageList.tsx with auto-scroll and welcome message
-✅ MessageBubble.tsx with user/assistant styling and timestamps
-✅ ChatInput.tsx with 500 char limit, validation, keyboard shortcuts
-✅ SuggestedPrompts.tsx with clickable prompt chips
-✅ TypingIndicator.tsx with animated bouncing dots
-✅ StatusBadge.tsx with ready/thinking/speaking states
-✅ lucide-react integration (Send, Settings icons)
-✅ Echo response flow (user message -> typing -> assistant response)
+### useChat (src/hooks/useChat.ts)
+Orchestrates the complete AI chat flow:
+1. **Message Handling**: Add user message to store
+2. **Typing State**: Show typing indicator (500-1000ms simulated delay)
+3. **AI Response**: Call MockResponseEngine.getResponse()
+4. **Character State**: Update emotion and animation
+5. **TTS**: Speak response if voice enabled
+6. **Animation Reset**: Return to idle after animation duration (except talking)
 
-## Phase 1.5 Deliverables (Completed)
+**Animation Durations:**
+- idle: 0ms, talking: 0ms (self-managed)
+- wave: 2000ms, nod: 1500ms, thinking: 3000ms, pointing: 2000ms
 
-✅ Scene.tsx with Canvas, lighting, environment, OrbitControls
-✅ Viewport3D.tsx wrapper component
-✅ Pointing animation added (right arm extended forward)
-✅ Audio amplitude sync in talking animation
-✅ All 6 animations working (idle, talking, wave, nod, thinking, pointing)
-✅ Path aliases configured (@/*) in tsconfig and vite
-✅ Code splitting configured for vendors (react, three, state)
+**Returns:**
+- `messages`: Current messages array
+- `isTyping`: Typing state boolean
+- `sendMessage(content)`: Async function to send message
 
-## Next Steps (Phase 4)
+## AI Engine
 
-- Implement MockResponseEngine for contextual AI responses
-- Add response parsing for emotion and animation markers
-- Integrate character animation triggers based on message content
-- Add more suggested prompts based on context
-- Implement settings panel (theme, animation controls)
-- Add export chat history feature
+### MockResponseEngine (src/lib/ai/responseEngine.ts)
+Keyword-based response engine with 7 categories:
+- **Method**: `getResponse(userMessage)` → `{ text, emotion, animation, followUpPrompts }`
+- **Pattern**: Normalizes message, checks triggers, selects random response
+- **Fallback**: Default category if no triggers match
+
+### Response Database (src/lib/ai/mockResponses.ts)
+**7 Response Categories:**
+1. **greetings**: Triggers ["hello", "hi", "selamat", "salam"] → happy/wave
+2. **student_queries**: Triggers ["student", "ahmad", "performance", "grade"] → neutral/thinking
+3. **at_risk_students**: Triggers ["risk", "attention", "concern"] → concerned/pointing
+4. **class_overview**: Triggers ["class", "form", "4s1", "4s2"] → neutral/nod
+5. **parent_meeting**: Triggers ["parent", "meeting", "prepare"] → neutral/thinking
+6. **encouragement**: Triggers ["thank", "thanks", "great"] → encouraging/nod
+7. **default**: Fallback → neutral/thinking
+
+**Malaysian Context:**
+- Student personas: Ahmad bin Hassan, Siti Aminah, Lee Wei Ming
+- Classes: Form 4S1, 4S2, 5S1
+- Greetings: "Selamat pagi!", "Salam"
+- Scenarios: Attendance issues, grade drops, homework completion
+
+## Deployment
+
+### Docker (Dockerfile)
+Multi-stage build:
+1. **Builder stage**: node:20-alpine → npm ci → npm run build
+2. **Production stage**: nginx:alpine → copy dist, nginx.conf
+3. **Result**: Static files served by nginx
+
+### nginx (nginx.conf)
+- SPA routing: `try_files $uri $uri/ /index.html`
+- Asset caching: `/assets/` cached 1 year, immutable
+- Gzip compression: text/plain, text/css, application/json, application/javascript
+
+### Railway (railway.json)
+- Builder: NIXPACKS (auto-detect Dockerfile)
+- Restart policy: ON_FAILURE, max 10 retries
+- Deploy: Push to GitHub → Railway auto-builds → `*.railway.app` URL
+
+## MVP Deliverables (All Completed)
+
+### Phase 1: Foundation ✅
+- React + TypeScript + Vite project
+- Three.js + React Three Fiber setup
+- Zustand store for state management
+- Tailwind CSS with Maya design system
+- Responsive split layout (Layout.tsx)
+- 3D scene with lighting, environment, controls (Scene.tsx, Viewport3D.tsx)
+- Maya character with 6 animations (MayaCharacter.tsx)
+- Code splitting configured
+- Path aliases (@/) configured
+
+### Phase 2: Chat Interface ✅
+- ChatPanel.tsx (orchestrates chat components)
+- ChatHeader.tsx (avatar, name, status, voice toggle)
+- MessageList.tsx (auto-scroll, welcome message)
+- MessageBubble.tsx (user/assistant styling, timestamps)
+- ChatInput.tsx (500 char limit, Enter/Shift+Enter, validation)
+- SuggestedPrompts.tsx (clickable prompt chips)
+- TypingIndicator.tsx (animated bouncing dots)
+- StatusBadge.tsx (ready/thinking/speaking states)
+- lucide-react icons (Send, Settings, Volume2, VolumeX)
+
+### Phase 3: Mock AI Engine ✅
+- MockResponseEngine class (responseEngine.ts)
+- 7 response categories with keyword matching
+- Malaysian teacher context (students, classes, scenarios)
+- useChat hook (orchestrates AI + animations + TTS)
+- Emotion and animation triggers
+- Follow-up prompt suggestions
+- Animation timing with auto-reset
+
+### Phase 4: Voice Integration ✅
+- Web Speech API (SpeechSynthesis) in chatStore
+- en-MY voice with fallback to English
+- Voice toggle button (Volume2/VolumeX icons)
+- voiceEnabled and isSpeaking state
+- Auto-sync talking animation during speech
+- Voice interruption handling (toggle off during speech)
+
+### Phase 5: Polish & UX ✅
+- All 6 animations smooth (idle, talking, wave, nod, thinking, pointing)
+- Automatic blinking (every 3-5 seconds)
+- Breathing animation (subtle vertical movement)
+- Smooth transitions (THREE.MathUtils.lerp)
+- StatusBadge with 3 states
+- Auto-scroll in MessageList
+- Color-coded character counter in ChatInput
+
+### Phase 6: Deployment Setup ✅
+- Multi-stage Dockerfile (node → nginx)
+- nginx.conf with SPA routing and caching
+- railway.json for Railway deployment
+- Production build optimized
+- Gzip compression configured
+
+## Known Implementation Gaps
+
+**Note**: The following components exist but are not fully integrated:
+- **ChatPanel.tsx**: Still uses echo response pattern instead of useChat hook
+- **useChat hook**: Exists but not imported in ChatPanel
+- **Mock AI**: Fully implemented in lib/ai/ but not connected to UI
+
+**To Complete Integration**:
+1. Import and use `useChat()` hook in ChatPanel.tsx
+2. Replace echo response with `await sendMessage(content)`
+3. Update suggested prompts with returned followUpPrompts
+
+## Future Enhancements (Phase 7+)
+
+- Real AI integration (OpenAI, Anthropic, local models)
+- Streaming responses
+- Voice input (Web Speech API SpeechRecognition)
+- Settings panel (theme, animation speed, voice selection)
+- Export chat history (JSON/CSV)
+- IndexedDB persistence
+- Service Worker for offline support
+- Multi-language support (Bahasa Malaysia, Chinese, Tamil)

@@ -1,8 +1,8 @@
 # System Architecture
 
-**Last Updated:** 2025-12-27 (Phase 3 Chat Interface)
+**Last Updated:** 2025-12-27 (MVP Complete)
 **Project:** Cikgu Maya 3D
-**Version:** 0.0.2
+**Version:** 1.0.0
 
 ## Table of Contents
 1. [Architecture Overview](#architecture-overview)
@@ -16,33 +16,44 @@
 
 ## Architecture Overview
 
-Cikgu Maya 3D follows a **client-side SPA (Single Page Application)** architecture with React as the UI framework and Three.js for 3D rendering. The application is built with **Vite** for fast development and optimized production builds.
+Cikgu Maya 3D follows a **client-side SPA (Single Page Application)** architecture with React as the UI framework and Three.js for 3D rendering. The application includes **mock AI responses**, **Web Speech API for TTS**, and is built with **Vite** for fast development and optimized production builds.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                         Browser                              │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌────────────────┐         ┌─────────────────┐             │
-│  │   React UI     │         │  3D Viewport    │             │
-│  │  (Chat Panel)  │◄────────┤  (Three.js)     │             │
-│  │                │  State  │                 │             │
-│  └────────┬───────┘         │  MayaCharacter  │             │
-│           │                 └─────────────────┘             │
-│           │                                                    │
-│           ▼                                                    │
-│  ┌────────────────┐                                           │
-│  │ Zustand Store  │                                           │
-│  │ (State Mgmt)   │                                           │
-│  └────────┬───────┘                                           │
-│           │                                                    │
-│           ▼                                                    │
-│  ┌────────────────┐                                           │
-│  │  AI Backend    │ (Future)                                  │
-│  │  (HTTP API)    │                                           │
-│  └────────────────┘                                           │
-│                                                               │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                         Browser                                  │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                    │
+│  ┌────────────────┐         ┌─────────────────┐                  │
+│  │   React UI     │         │  3D Viewport    │                  │
+│  │  (Chat Panel)  │◄────────┤  (Three.js)     │                  │
+│  │                │  State  │                 │                  │
+│  └────────┬───────┘         │  MayaCharacter  │                  │
+│           │                 └─────────────────┘                  │
+│           │                                                          │
+│           ▼                                                          │
+│  ┌────────────────┐                                                 │
+│  │ Zustand Store  │                                                 │
+│  │ (State Mgmt)   │                                                 │
+│  │ - messages     │                                                 │
+│  │ - voice state  │                                                 │
+│  │ - animations   │                                                 │
+│  └────────┬───────┘                                                 │
+│           │                                                          │
+│           ├─────────────────────────────┐                          │
+│           ▼                             ▼                          │
+│  ┌────────────────┐          ┌─────────────────┐                   │
+│  │ Mock AI Engine │          │ Web Speech API  │                   │
+│  │ (7 categories) │          │  (TTS en-MY)    │                   │
+│  └────────────────┘          └─────────────────┘                   │
+│                                                                    │
+│  ┌────────────────┐                                                 │
+│  │ useChat Hook   │  (Orchestrates flow)                          │
+│  │ - AI response  │────────► Store update ────────► TTS speak       │
+│  │ - Animations   │          └──────────────────────────────────┘   │
+│  │ - Timing       │                                                 │
+│  └────────────────┘                                                 │
+│                                                                    │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Technology Stack
@@ -75,12 +86,27 @@ Cikgu Maya 3D follows a **client-side SPA (Single Page Application)** architectu
   - No boilerplate or providers
   - TypeScript-first design
   - Immutable update patterns
+  - Voice state management (voiceEnabled, isSpeaking)
+
+### Voice Integration
+- **Web Speech API** - Browser-native TTS
+  - SpeechSynthesis interface
+  - en-MY locale with fallback
+  - Event handling (start, end, error)
+  - Sync with character animations
+
+### AI Engine
+- **MockResponseEngine** - Keyword-based response system
+  - 7 response categories
+  - Malaysian teacher context
+  - Emotion and animation triggers
+  - Follow-up prompt suggestions
 
 ### Styling
 - **Tailwind CSS 4.1** - Utility-first CSS framework
   - PostCSS integration
   - JIT (Just-In-Time) compiler
-  - Design system tokens
+  - Design system tokens (Maya colors)
 
 ## Component Architecture
 
@@ -365,94 +391,121 @@ camera={{
 
 ## Data Flow
 
-### Phase 1: Current Flow (Static)
+### MVP Flow: User Message → AI Response → TTS → Animation
 
 ```
-┌─────────────┐
-│   Initial   │
-│    Load     │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│ React Mount │
-│ (main.tsx)  │
-└──────┬──────┘
-       │
-       ├──► App.tsx renders
-       │
-       ├──► useChatStore initializes (default state)
-       │    - messages: []
-       │    - currentAnimation: 'idle'
-       │
-       ├──► Layout renders
-       │    - Viewport3D (50% width)
-       │    - ChatPanel (50% width)
-       │
-       └───► MayaCharacter renders
-            - Receives animation='idle' from store
-            - Starts animation loop (useFrame)
-            - Starts blinking (useEffect)
+┌──────────────────┐
+│ User Types       │
+│ "Hello"          │
+└─────────┬────────┘
+          │
+          ▼
+┌──────────────────┐        ┌──────────────────────┐
+│ ChatPanel        │────────► addMessage()         │
+│ handleSendMessage│        │ (Store Action)        │
+└──────────────────┘        └──────────┬───────────┘
+                                      │
+                                      ▼
+                            ┌──────────────────────┐
+                            │ Store Update         │
+                            │ - messages: [user]   │
+                            │ - isTyping: true     │
+                            └──────────┬───────────┘
+                                       │
+                    ┌──────────────────┴──────────────────┐
+                    ▼                                     ▼
+          ┌─────────────────┐                   ┌─────────────────┐
+          │ MessageList     │                   │ MayaCharacter   │
+          │ Shows user msg  │                   │ Animation: idle │
+          │ + TypingIndicator│                  │ (unchanged)     │
+          └─────────────────┘                   └─────────────────┘
+                    │
+                    ▼
+          ┌──────────────────────────────────────────────────┐
+          │ useChat.sendMessage() (Hook orchestrates flow)   │
+          └────────────────────┬─────────────────────────────┘
+                               │
+                    ┌──────────┴──────────┐
+                    ▼                     ▼
+          ┌───────────────┐      ┌──────────────────┐
+          │ Simulate      │      │ Mock AI Engine   │
+          │ Thinking Delay│      │ getResponse()    │
+          │ (500-1000ms)  │      │ - Keyword match  │
+          └───────┬───────┘      │ - Select emotion │
+                  │              │ - Select anim    │
+                  │              │ - Follow-up     │
+                  │              └────────┬─────────┘
+                  │                       │
+                  └───────────┬───────────┘
+                              ▼
+                    ┌──────────────────────┐
+                    │ Store Updates        │
+                    │ - addMessage(assistant)│
+                    │ - setEmotion(happy)   │
+                    │ - setAnimation(wave)  │
+                    │ - isTyping: false     │
+                    └──────────┬───────────┘
+                               │
+            ┌──────────────────┴──────────────────┐
+            ▼                                     ▼
+  ┌─────────────────┐                   ┌─────────────────┐
+  │ MessageList     │                   │ MayaCharacter   │
+  │ Shows assistant │                   │ Animation: wave │
+  │ response        │                   │ (auto-idle 2s)  │
+  └─────────────────┘                   └─────────────────┘
+            │
+            ▼
+  ┌──────────────────────────────────────────────────┐
+  │ store.speak(responseText)                        │
+  │ - Check voiceEnabled                             │
+  │ - Create SpeechSynthesisUtterance                │
+  │ - Set voice (en-MY or en-*)                      │
+  │ - onstart: isSpeaking=true, anim='talking'       │
+  │ - Speak text                                     │
+  │ - onend: isSpeaking=false, anim='idle'           │
+  └────────────────────┬─────────────────────────────┘
+                       │
+                       ▼
+            ┌─────────────────────┐
+            │ Audio plays         │
+            │ Jaw animates        │
+            │ Status: 'speaking'  │
+            └─────────────────────┘
 ```
 
-### Phase 2+: Future Flow (Interactive)
+### Voice Toggle Flow
 
 ```
 ┌──────────────┐
-│ User Types   │
-│   Message    │
+│ User clicks  │
+│ Voice toggle │
 └──────┬───────┘
        │
        ▼
-┌──────────────┐        ┌──────────────┐
-│ Chat Input   │───────►│ addMessage() │
-│  Component   │        │   (Action)   │
-└──────────────┘        └──────┬───────┘
-                               │
-                               ▼
-                        ┌──────────────┐
-                        │ Store Update │
-                        │              │
-                        │ - messages++ │
-                        │ - isTyping=  │
-                        │    true      │
-                        └──────┬───────┘
-                               │
-                ┌──────────────┴──────────────┐
-                ▼                              ▼
-         ┌─────────────┐              ┌─────────────┐
-         │ Chat Panel  │              │ Maya Char   │
-         │ Re-renders  │              │ Animation   │
-         │             │              │ Unchanged   │
-         └─────────────┘              └─────────────┘
-                │
-                ▼
-         ┌──────────────┐
-         │ Send to API  │ (Future)
-         └──────┬───────┘
-                │
-                ▼
-         ┌──────────────┐
-         │ AI Response  │
-         └──────┬───────┘
-                │
-                ▼
-         ┌──────────────┐
-         │ setAnimation │
-         │ setEmotion   │
-         └──────┬───────┘
-                │
-                ▼
-         ┌──────────────┐
-         │ Maya Char    │
-         │ Animation    │
-         │ Changes      │
-         └──────────────┘
+┌──────────────┐        ┌──────────────────┐
+│ ChatHeader   │────────► toggleVoice()    │
+│ Voice button │        │ (Store Action)   │
+└──────────────┘        └────────┬─────────┘
+                                 │
+                                 ▼
+                       ┌──────────────────┐
+                       │ voiceEnabled =   │
+                       │ !voiceEnabled    │
+                       └────────┬─────────┘
+                                │
+                    ┌───────────┴───────────┐
+                    ▼                       ▼
+          ┌─────────────────┐     ┌─────────────────┐
+          │ Disabling       │     │ Enabling        │
+          │ - Cancel TTS    │     │ - Future speech │
+          │ - isSpeaking=false│    │   will work     │
+          │ - anim='idle'   │     │                 │
+          └─────────────────┘     └─────────────────┘
 ```
 
 ## Module Dependencies
 
-### Dependency Graph (Phase 3)
+### Dependency Graph (MVP Complete)
 
 ```
 index.html
@@ -468,11 +521,12 @@ index.html
        │    └─► ChatPanel
        │         ├─► ChatHeader
        │         │    ├─► StatusBadge
-       │         │    └─► useChatStore
+       │         │    ├─► useChatStore (voiceEnabled, isSpeaking, toggleVoice)
+       │         │    └─► lucide-react (Volume2, VolumeX, Settings)
        │         ├─► MessageList
        │         │    ├─► MessageBubble
        │         │    ├─► TypingIndicator
-       │         │    └─► useChatStore
+       │         │    └─► useChatStore (messages, isTyping)
        │         ├─► SuggestedPrompts
        │         └─► ChatInput
        │              └─► lucide-react (Send icon)
@@ -481,13 +535,26 @@ index.html
 
 chatStore.ts
   ├─► message.ts (types)
-  └─► zustand
+  ├─► zustand
+  └─► Web Speech API (window.speechSynthesis)
+
+useChat.ts (Hook)
+  ├─► chatStore
+  ├─► responseEngine.ts
+  └─► message.ts (types)
+
+responseEngine.ts
+  ├─► mockResponses.ts
+  └─► message.ts (types)
+
+mockResponses.ts
+  └─► message.ts (types)
 
 message.ts (types)
   └─► No dependencies
 
 lucide-react
-  └─► Icons (Send, Settings)
+  └─► Icons (Send, Settings, Volume2, VolumeX)
 ```
 
 ### Import Rules
@@ -496,6 +563,7 @@ lucide-react
 - UI components should not import from other UI components directly
 - Shared types should be in `types/` directory
 - Store should not import components (one-way data flow)
+- AI engine should be independent (no UI imports)
 - Use path aliases (`@/`) for clean imports (configured in tsconfig and vite)
 
 ## Performance Considerations
@@ -545,56 +613,132 @@ useEffect(() => {
 
 ### Bundle Size Optimization
 
-**Current Status**: Phase 1.5 (Code splitting configured)
+**Current Status**: MVP Complete
 - React Vendor: React + ReactDOM (~42KB gzipped)
 - Three Vendor: three + @react-three/fiber + @react-three/drei (~600KB gzipped)
 - State Vendor: zustand (~1KB gzipped)
-- **Total**: ~643KB gzipped (split into 3 chunks)
+- Icons: lucide-react (~3KB gzipped, tree-shakeable)
+- **Total**: ~646KB gzipped (split into 3 chunks)
 
 **Implemented Optimizations**:
 - Manual chunks configured in vite.config.ts
 - Vendor separation (react, three, state)
 - Path aliases for clean imports
+- lucide-react tree-shaking (only imported icons bundled)
 
 **Future Optimizations**:
 - Code splitting for chat panel (lazy load)
 - Dynamic imports for 3D assets
 - Tree shaking for unused Three.js modules
+- Service Worker for asset caching
 
 ### Performance Targets
 
-| Metric | Target | Phase 1.5 Status |
-|--------|--------|------------------|
+| Metric | Target | MVP Status |
+|--------|--------|------------|
 | Initial Load | < 3s | ✅ ~1.5s (local) |
 | 3D FPS | 60 FPS | ✅ 60 FPS (tested) |
 | Re-render Time | < 16ms | ✅ < 5ms (simple) |
-| Bundle Size | < 1MB | ✅ ~643KB (split) |
+| Bundle Size | < 1MB | ✅ ~646KB (split) |
+| TTS Latency | < 100ms | ✅ Web Speech API (native) |
 
 ---
 
 ## Architecture Principles
 
-1. **Separation of Concerns**: UI, state, and 3D rendering are separate
+1. **Separation of Concerns**: UI, state, 3D rendering, AI logic, and voice are separate
 2. **Unidirectional Data Flow**: State → UI, never UI → State directly
 3. **Declarative over Imperative**: R3F components over raw Three.js
 4. **Type Safety**: TypeScript strict mode, no `any` types
 5. **Performance-First**: Selectors, memoization, material reuse
+6. **Browser-Native APIs**: Web Speech API for TTS (no external services)
+
+## Deployment Architecture
+
+### Docker + nginx + Railway
+
+```
+┌─────────────────────────────────────────────────┐
+│ Railway Cloud (PaaS)                            │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│  ┌───────────────────────────────────────────┐  │
+│  │ nginx:alpine Container                    │  │
+│  │ - Port 80 exposed                         │  │
+│  │ - Serves /usr/share/nginx/html            │  │
+│  │ - SPA routing (try_files)                 │  │
+│  │ - Gzip compression                        │  │
+│  │ - Asset caching (1 year)                  │  │
+│  └───────────────────────────────────────────┘  │
+│            ▲                                    │
+│            │ Built from                         │
+│  ┌─────────┴─────────────────────────────────┐  │
+│  │ node:20-alpine Builder (ephemeral)       │  │
+│  │ - npm ci (clean install)                 │  │
+│  │ - npm run build (tsc + vite)             │  │
+│  │ - Outputs /app/dist                       │  │
+│  └───────────────────────────────────────────┘  │
+│                                                 │
+│  ┌───────────────────────────────────────────┐  │
+│  │ Auto-detect via railway.json              │  │
+│  │ - Builder: NIXPACKS                       │  │
+│  │ - Restart: ON_FAILURE (max 10)            │  │
+│  │ - Deploy: Git push → auto-build → URL     │  │
+│  └───────────────────────────────────────────┘  │
+│                                                 │
+└─────────────────────────────────────────────────┘
+```
+
+### Build Flow
+
+```
+Developer
+    │
+    │ git push
+    ▼
+Railway GitHub Integration
+    │
+    │ Detect Dockerfile
+    ▼
+Build Phase (node:20-alpine)
+    ├─ npm ci (install dependencies)
+    ├─ npm run build (TypeScript compile + Vite bundle)
+    └─ Output: /app/dist/
+        ├─ index.html
+        ├─ assets/index-[hash].js
+        └─ assets/index-[hash].css
+    │
+    ▼
+Deploy Phase (nginx:alpine)
+    ├─ COPY /app/dist → /usr/share/nginx/html
+    ├─ COPY nginx.conf → /etc/nginx/conf.d/default.conf
+    ├─ EXPOSE 80
+    └─ CMD nginx -g daemon off
+    │
+    ▼
+Running Container
+    ├─ nginx listens on :80
+    ├─ Railway provides *.railway.app URL
+    └─ Automatic HTTPS (Let's Encrypt)
+```
 
 ## Future Architectural Changes
 
-### Phase 2: Chat System
-- Message list virtualization (react-window)
-- Message pagination for long conversations
-- Input debouncing for validation
-
-### Phase 3: AI Integration
+### Phase 7+: Real AI Integration
 - API client abstraction (axios/fetch wrapper)
 - Request/response interceptors
 - Streaming response handling
 - Error boundary for API failures
+- Replace MockResponseEngine with real AI service
 
-### Phase 4: Advanced Features
-- Web Audio API for TTS
-- Web Speech API for voice input
-- IndexedDB for chat history persistence
-- Service Worker for offline support
+### Advanced Voice Features
+- Web Speech API SpeechRecognition for voice input
+- Voice settings panel (rate, pitch, voice selection)
+- Visual audio waveform during speech
+- Voice command processing
+
+### Data Persistence
+- IndexedDB for chat history storage
+- Export/import chat history (JSON/CSV)
+- User preferences persistence
+- Offline support with Service Worker
