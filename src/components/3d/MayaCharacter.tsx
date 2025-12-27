@@ -2,7 +2,7 @@ import { useRef, useState, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
-export type AnimationState = 'idle' | 'talking' | 'wave' | 'nod' | 'thinking'
+export type AnimationState = 'idle' | 'talking' | 'wave' | 'nod' | 'thinking' | 'pointing'
 
 export interface MayaCharacterProps {
   animation?: AnimationState
@@ -11,7 +11,7 @@ export interface MayaCharacterProps {
 
 export function MayaCharacter({
   animation = 'idle',
-  audioAmplitude: _audioAmplitude = 0,
+  audioAmplitude = 0,
 }: MayaCharacterProps) {
   // Refs for animated body parts
   const characterRef = useRef<THREE.Group>(null!)
@@ -62,14 +62,41 @@ export function MayaCharacter({
     // ========== STATE-BASED ANIMATIONS ==========
     switch (animation) {
       case 'talking': {
-        // Jaw movement synced to simulated audio wave
+        // Jaw movement synced to audio amplitude (or simulated wave)
         if (jawRef.current) {
-          const wave = (Math.sin(time * 10) + 1) / 2 // 0-1 sine wave
-          const jawOpen = wave * 0.3
+          // Use audioAmplitude if provided, otherwise simulate
+          const jawOpen = audioAmplitude > 0
+            ? audioAmplitude * 0.4
+            : ((Math.sin(time * 10) + 1) / 2) * 0.3
+
           jawRef.current.rotation.x = THREE.MathUtils.lerp(
             jawRef.current.rotation.x,
             jawOpen,
             0.3
+          )
+        }
+        break
+      }
+
+      case 'pointing': {
+        // Pointing gesture with right arm
+        const armRightPoint = armRightRef.current
+        if (armRightPoint) {
+          // Lift and extend arm to point forward
+          armRightPoint.rotation.z = THREE.MathUtils.lerp(
+            armRightPoint.rotation.z,
+            -1.8,
+            0.1
+          )
+          armRightPoint.rotation.x = THREE.MathUtils.lerp(
+            armRightPoint.rotation.x,
+            -0.5,
+            0.1
+          )
+          armRightPoint.position.y = THREE.MathUtils.lerp(
+            armRightPoint.position.y,
+            1.3,
+            0.1
           )
         }
         break
