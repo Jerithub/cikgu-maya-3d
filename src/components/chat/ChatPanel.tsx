@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useChatStore } from '@/store/chatStore'
+import { useChat } from '@/hooks/useChat'
 import { ChatHeader } from './ChatHeader'
 import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
@@ -12,29 +12,17 @@ export function ChatPanel() {
     'Show at-risk students',
   ])
 
-  const handleSendMessage = (content: string) => {
-    // Add user message
-    const store = useChatStore.getState()
-    store.addMessage({
-      role: 'user',
-      content,
-    })
+  const { sendMessage } = useChat()
 
-    // For now, just clear prompts (Phase 4 will add actual responses)
-    setSuggestedPrompts([])
+  const handleSendMessage = async (content: string) => {
+    const followUpPrompts = await sendMessage(content)
 
-    // TODO: Phase 4 will integrate with MockResponseEngine
-    // For now, add a simple echo response after delay
-    store.setTyping(true)
-    setTimeout(() => {
-      store.addMessage({
-        role: 'assistant',
-        content: `I received your message: "${content}"\n\n(Chat responses will be implemented in Phase 4)`,
-        emotion: 'neutral',
-        animation: 'idle',
-      })
-      store.setTyping(false)
-    }, 1000)
+    // Update suggested prompts with AI-generated follow-ups
+    if (followUpPrompts && followUpPrompts.length > 0) {
+      setSuggestedPrompts(followUpPrompts)
+    } else {
+      setSuggestedPrompts([])
+    }
   }
 
   const handleSelectPrompt = (prompt: string) => {
