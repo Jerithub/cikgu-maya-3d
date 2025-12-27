@@ -1,15 +1,18 @@
-import { Settings } from 'lucide-react'
+import { Settings, Volume2, VolumeX } from 'lucide-react'
 import { StatusBadge } from '../ui/StatusBadge'
 import { useChatStore } from '@/store/chatStore'
 
 export function ChatHeader() {
   const isTyping = useChatStore((state) => state.isTyping)
+  const isSpeaking = useChatStore((state) => state.isSpeaking)
+  const voiceEnabled = useChatStore((state) => state.voiceEnabled)
+  const toggleVoice = useChatStore((state) => state.toggleVoice)
 
   // Determine status based on state
   const getStatus = (): 'ready' | 'thinking' | 'speaking' => {
+    if (isSpeaking) return 'speaking'
     if (isTyping) return 'thinking'
     return 'ready'
-    // Phase 5: Add 'speaking' when voice is implemented
   }
 
   return (
@@ -31,14 +34,35 @@ export function ChatHeader() {
           </div>
         </div>
 
-        {/* Right: Settings button */}
-        <button
-          className="p-2 hover:bg-maya-bg-gray rounded-lg transition-colors"
-          aria-label="Settings"
-          title="Settings (coming soon)"
-        >
-          <Settings className="w-5 h-5 text-maya-text-secondary" />
-        </button>
+        {/* Right: Action buttons */}
+        <div className="flex items-center gap-2">
+          {/* Voice toggle */}
+          <button
+            onClick={toggleVoice}
+            className={`p-2 rounded-lg transition-colors ${
+              voiceEnabled
+                ? 'bg-maya-primary/10 text-maya-primary hover:bg-maya-primary/20'
+                : 'bg-maya-bg-gray text-maya-text-muted hover:bg-maya-bg-gray/80'
+            }`}
+            aria-label={voiceEnabled ? 'Mute voice' : 'Enable voice'}
+            title={voiceEnabled ? 'Voice on' : 'Voice off'}
+          >
+            {voiceEnabled ? (
+              <Volume2 className="w-5 h-5" />
+            ) : (
+              <VolumeX className="w-5 h-5" />
+            )}
+          </button>
+
+          {/* Settings button */}
+          <button
+            className="p-2 hover:bg-maya-bg-gray rounded-lg transition-colors"
+            aria-label="Settings"
+            title="Settings (coming soon)"
+          >
+            <Settings className="w-5 h-5 text-maya-text-secondary" />
+          </button>
+        </div>
       </div>
     </div>
   )
