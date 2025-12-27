@@ -1,0 +1,5 @@
+.claude/
+!.gitkeep
+/.env
+/.venv
+node_modules/
