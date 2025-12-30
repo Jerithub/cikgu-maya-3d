@@ -1,6 +1,6 @@
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Environment } from '@react-three/drei'
-import { MayaCharacter } from './MayaCharacter'
+import { VRMCharacter } from './VRMCharacter'
 import { useChatStore } from '@/store/chatStore'
 
 export function Scene() {
@@ -28,7 +28,7 @@ export function Scene() {
       <Environment preset="city" background={false} />
 
       {/* Character */}
-      <MayaCharacter
+      <VRMCharacter
         animation={animation}
         audioAmplitude={isSpeaking ? 0.5 : 0}
       />
