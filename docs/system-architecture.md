@@ -1,8 +1,8 @@
 # System Architecture
 
-**Last Updated:** 2025-12-27 (MVP Complete)
+**Last Updated:** 2025-12-29 (VRM Integration Complete)
 **Project:** Cikgu Maya 3D
-**Version:** 1.0.0
+**Version:** 1.1.0
 
 ## Table of Contents
 1. [Architecture Overview](#architecture-overview)
@@ -10,13 +10,14 @@
 3. [Component Architecture](#component-architecture)
 4. [State Management](#state-management)
 5. [3D Rendering Pipeline](#3d-rendering-pipeline)
-6. [Data Flow](#data-flow)
-7. [Module Dependencies](#module-dependencies)
-8. [Performance Considerations](#performance-considerations)
+6. [VRM Animation System](#vrm-animation-system)
+7. [Data Flow](#data-flow)
+8. [Module Dependencies](#module-dependencies)
+9. [Performance Considerations](#performance-considerations)
 
 ## Architecture Overview
 
-Cikgu Maya 3D follows a **client-side SPA (Single Page Application)** architecture with React as the UI framework and Three.js for 3D rendering. The application includes **mock AI responses**, **Web Speech API for TTS**, and is built with **Vite** for fast development and optimized production builds.
+Cikgu Maya 3D follows a **client-side SPA (Single Page Application)** architecture with React as the UI framework and Three.js for 3D rendering. The application includes **VRM-based character rendering**, **mock AI responses**, **Web Speech API for TTS**, and is built with **Vite** for fast development and optimized production builds.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -27,7 +28,8 @@ Cikgu Maya 3D follows a **client-side SPA (Single Page Application)** architectu
 │  │   React UI     │         │  3D Viewport    │                  │
 │  │  (Chat Panel)  │◄────────┤  (Three.js)     │                  │
 │  │                │  State  │                 │                  │
-│  └────────┬───────┘         │  MayaCharacter  │                  │
+│  └────────┬───────┘         │  VRMCharacter   │                  │
+│           │                 │  (Maya.vrm)     │                  │
 │           │                 └─────────────────┘                  │
 │           │                                                          │
 │           ▼                                                          │
@@ -80,6 +82,11 @@ Cikgu Maya 3D follows a **client-side SPA (Single Page Application)** architectu
 - **@react-three/drei 9.117** - Helper components
   - Pre-built abstractions (lights, controls, loaders)
   - Performance optimizations
+- **@pixiv/three-vrm 3.4.4** - VRM model loader (NEW)
+  - GLTFLoader plugin for VRM format
+  - VRoid Studio model support
+  - Bone-based humanoid animation
+  - VRMUtils for optimization
 
 ### State Management
 - **Zustand 5.0** - Lightweight state management
@@ -121,20 +128,13 @@ App
 │   │       ├── Environment (city preset)
 │   │       ├── OrbitControls
 │   │       ├── Ground Plane
-│   │       └── MayaCharacter
-│   │           ├── Head Group
-│   │           │   ├── Head Mesh
-│   │           │   ├── Hair Mesh
-│   │           │   ├── Eyes (Left/Right)
-│   │           │   ├── Nose
-│   │           │   └── Jaw (animated for talking)
-│   │           ├── Body Mesh
-│   │           ├── Left Arm Group
-│   │           │   ├── Arm Mesh
-│   │           │   └── Hand Mesh
-│   │           └── Right Arm Group
-│   │               ├── Arm Mesh (animated for wave/pointing/thinking)
-│   │               └── Hand Mesh
+│   │       └── VRMCharacter (NEW - loads /Maya.vrm)
+│   │           └── VRM Humanoid Bones
+│   │               ├── head (nod, thinking, idle sway)
+│   │               ├── jaw (talking)
+│   │               ├── rightUpperArm (wave, pointing, thinking)
+│   │               ├── rightLowerArm (wave, pointing, thinking)
+│   │               └── chest (breathing)
 │   └── ChatPanel
 │       ├── ChatHeader
 │       │   ├── Avatar (gradient circle)
@@ -188,20 +188,26 @@ App
   - Adds Environment preset (city) for reflections
   - Configures OrbitControls (distance/polar angle limits)
   - Renders ground plane with shadow receiving
-  - Connects MayaCharacter to chatStore for animation
-- **Dependencies**: MayaCharacter, useChatStore, @react-three/fiber, @react-three/drei
+  - Connects VRMCharacter to chatStore for animation (UPDATED)
+- **Dependencies**: VRMCharacter (NEW), useChatStore, @react-three/fiber, @react-three/drei
 
-#### **MayaCharacter.tsx**
-- **Role**: 3D character with animations
+#### **VRMCharacter.tsx** - NEW
+- **Role**: VRM-based 3D character with bone-based animations
 - **Responsibilities**:
-  - Procedural character construction
-  - Animation state management (idle, talking, wave, nod, thinking, pointing)
-  - Blinking effect (every 3-5 seconds)
-  - Breathing animation (always active)
-  - Audio amplitude sync for talking animation
-- **Dependencies**: Three.js, @react-three/fiber
+  - Load VRM model from public/Maya.vrm (~15MB)
+  - Cache bone references (head, jaw, rightUpperArm, rightLowerArm, chest)
+  - Animation state management via bone rotation (idle, talking, wave, nod, thinking, pointing)
+  - Breathing animation (via chest bone, always active)
+  - Call vrm.update(delta) every frame
+  - Error handling and graceful fallback
+- **Dependencies**: Three.js, @react-three/fiber, @pixiv/three-vrm, GLTFLoader
 - **Props**: `animation?: AnimationState`, `audioAmplitude?: number`
 - **Exports**: `AnimationState` type (union of 6 animations)
+
+#### **MayaCharacter.tsx** - UNUSED
+- **Role**: Procedural 3D character with animations (kept as fallback)
+- **Status**: Component exists but not imported in Scene.tsx
+- **Responsibilities**: (same as before, procedural construction)
 
 #### **ChatPanel**
 - **Role**: Main chat interface container
@@ -317,55 +323,59 @@ const currentAnimation = useChatStore((state) => state.currentAnimation)
 
 ## 3D Rendering Pipeline
 
-### Three.js Scene Graph
+### Three.js Scene Graph (VRM-based)
 
 ```
 Scene (Implicit in R3F)
 └── Canvas
-    └── characterRef (Group)
-        ├── headGroupRef (Group)
-        │   ├── Head Mesh (Sphere)
-        │   ├── Hair Mesh (Partial Sphere)
-        │   ├── Left Eye (Sphere)
-        │   ├── Left Pupil (Sphere, animated blink)
-        │   ├── Right Eye (Sphere)
-        │   ├── Right Pupil (Sphere, animated blink)
-        │   ├── Nose (Sphere)
-        │   └── jawRef (Torus, animated)
-        ├── Body Mesh (Capsule)
-        ├── Left Arm Group (Rotated)
-        │   ├── Arm Mesh (Cylinder)
-        │   └── Hand Mesh (Sphere)
-        ├── Right Arm Group (Rotated)
-        │   ├── Arm Mesh (Cylinder, animated)
-        │   └── Hand Mesh (Sphere)
-        └── Ground Plane (Plane, receives shadow)
+    └── vrmRef.scene (VRM Scene, rotated y = Math.PI)
+        └── VRM Humanoid Bones
+            ├── headBoneRef (Object3D)
+            │   └── Rotation: nod (x), thinking (z), idle sway (x, y)
+            ├── jawBoneRef (Object3D)
+            │   └── Rotation: talking (x - jaw open/close)
+            ├── rightUpperArmRef (Object3D)
+            │   └── Rotation: wave (z), pointing (z, x), thinking (z, x)
+            ├── rightLowerArmRef (Object3D)
+            │   └── Rotation: wave (z oscillating), pointing (x), thinking (x)
+            ├── chestBoneRef (Object3D)
+            │   └── Rotation: breathing (z oscillating)
+            └── (Other VRM nodes: mesh, materials, etc.)
 ```
 
-### Animation System
+### VRM Animation System (NEW)
 
 **Frame Loop** (`useFrame` hook):
 ```
 For each frame (60 FPS target):
-  1. Get elapsed time from clock
-  2. Apply breathing animation (characterRef.position.y) - ALWAYS ACTIVE
-  3. Apply idle head sway (headGroupRef.rotation) - ALWAYS ACTIVE
-  4. Switch(animation):
-     - 'idle': Reset all body parts to neutral pose
-     - 'talking': Animate jaw (jawRef.rotation.x) based on audioAmplitude or simulated wave
-     - 'pointing': Extend right arm forward and up (z: -1.8rad, x: -0.5rad)
-     - 'wave': Oscillate right arm (z: -2.5rad, x: wave motion at 10rad/s)
-     - 'nod': Animate head nod (rotation.x at 15rad/s)
-     - 'thinking': Hand to chin pose + head tilt (z: 0.15rad)
-  5. Update all transforms using THREE.MathUtils.lerp for smoothness
+  1. Check if vrmRef.current exists and vrmLoaded === true
+  2. Get elapsed time from clock
+  3. Apply breathing animation (chestBoneRef.rotation.z) - ALWAYS ACTIVE
+  4. Apply idle head sway (headBoneRef.rotation.y, .x) - ALWAYS ACTIVE
+  5. Switch(animation):
+     - 'idle': Reset all bones to neutral pose via lerp
+     - 'talking': Animate jaw (jawBoneRef.rotation.x) based on audioAmplitude or simulated wave
+     - 'pointing': Extend right arm (rightUpperArm: z=-1.5, x=-0.3, rightLowerArm: x=-1.5)
+     - 'wave': Raise right arm (rightUpperArm: z=-2.0), oscillate lowerArm (z wave motion at 10rad/s)
+     - 'nod': Animate head nod (headBoneRef.rotation.x oscillating at 15rad/s)
+     - 'thinking': Hand to chin pose (rightUpperArm: z=-0.8, x=-1.2, rightLowerArm: x=-1.0, head: z=0.15)
+  6. Update all bone rotations using THREE.MathUtils.lerp for smoothness
+  7. CRITICAL: Call vrm.update(delta) for VRM internal animation processing
 ```
 
-**Blinking System** (`useEffect` hook):
+**Bone Caching** (on VRM load):
 ```
-Every 3-5 seconds (randomized):
-  1. Trigger left eye blink (scale.y = 0.1 for 150ms)
-  2. After 50ms, trigger right eye blink
-  3. Reset to normal (scale.y = 1.0)
+1. Load VRM using GLTFLoader + VRMLoaderPlugin
+2. Extract VRM from gltf.userData.vrm
+3. Call VRMUtils.removeUnnecessaryVertices() and VRMUtils.removeUnnecessaryJoints()
+4. Set vrm.scene.rotation.y = Math.PI (VRoid models face backward)
+5. Cache bone references using vrm.humanoid.getNormalizedBoneNode():
+   - headBoneRef = getNormalizedBoneNode('head')
+   - jawBoneRef = getNormalizedBoneNode('jaw')
+   - rightUpperArmRef = getNormalizedBoneNode('rightUpperArm')
+   - rightLowerArmRef = getNormalizedBoneNode('rightLowerArm')
+   - chestBoneRef = getNormalizedBoneNode('chest')
+6. Set vrmLoaded = true
 ```
 
 ### Lighting Setup
@@ -613,12 +623,13 @@ useEffect(() => {
 
 ### Bundle Size Optimization
 
-**Current Status**: MVP Complete
+**Current Status**: MVP Complete with VRM Integration
 - React Vendor: React + ReactDOM (~42KB gzipped)
-- Three Vendor: three + @react-three/fiber + @react-three/drei (~600KB gzipped)
+- Three Vendor: three + @react-three/fiber + @react-three/drei + @pixiv/three-vrm (~650KB gzipped, UPDATED)
 - State Vendor: zustand (~1KB gzipped)
 - Icons: lucide-react (~3KB gzipped, tree-shakeable)
-- **Total**: ~646KB gzipped (split into 3 chunks)
+- Assets: public/Maya.vrm (~15MB, loaded separately via HTTP)
+- **Total JS**: ~696KB gzipped (split into 3 chunks, UPDATED)
 
 **Implemented Optimizations**:
 - Manual chunks configured in vite.config.ts

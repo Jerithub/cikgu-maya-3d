@@ -1,12 +1,12 @@
 # Codebase Summary
 
-**Last Updated:** 2025-12-27
-**Version:** 1.0.0
-**Status:** MVP COMPLETE - All 7 Phases
+**Last Updated:** 2025-12-29
+**Version:** 1.1.0
+**Status:** MVP COMPLETE with VRM Integration - All 7 Phases
 
 ## Project Overview
 
-Cikgu Maya 3D is an interactive educational assistant featuring a 3D animated character with voice integration and mock AI responses. Built with React Three Fiber, Zustand state management, Web Speech API, and Tailwind CSS.
+Cikgu Maya 3D is an interactive educational assistant featuring a **VRM-based 3D animated character** using @pixiv/three-vrm, with voice integration and mock AI responses. Built with React Three Fiber, Zustand state management, Web Speech API, and Tailwind CSS.
 
 ## Technology Stack
 
@@ -19,6 +19,7 @@ Cikgu Maya 3D is an interactive educational assistant featuring a 3D animated ch
 - **Three.js 0.170.0** - 3D rendering engine
 - **@react-three/fiber 8.17.10** - React renderer for Three.js
 - **@react-three/drei 9.117.3** - Useful helpers for R3F
+- **@pixiv/three-vrm 3.4.4** - VRM model loading and bone animation (NEW)
 
 ### State Management
 - **Zustand 5.0.9** - Lightweight state management
@@ -38,7 +39,8 @@ cikgu-maya-3d/
 ├── src/
 │   ├── components/
 │   │   ├── 3d/
-│   │   │   ├── MayaCharacter.tsx    # 3D character with 6 animations
+│   │   │   ├── VRMCharacter.tsx     # VRM model loader with bone animations (NEW)
+│   │   │   ├── MayaCharacter.tsx    # Procedural character (UNUSED - fallback)
 │   │   │   ├── Scene.tsx            # Three.js Canvas with lighting & controls
 │   │   │   └── Viewport3D.tsx       # Scene wrapper component
 │   │   ├── chat/
@@ -69,6 +71,8 @@ cikgu-maya-3d/
 │   └── vite-env.d.ts                # Vite TypeScript declarations
 ├── docs/                            # Documentation
 ├── plans/                           # Project plans
+├── public/                          # Static assets (NEW)
+│   └── Maya.vrm                     # VRM character file (~15MB)
 ├── index.html                       # HTML entry point
 ├── package.json                     # Dependencies
 ├── Dockerfile                       # Multi-stage build (node → nginx)
@@ -89,7 +93,7 @@ Three.js Canvas wrapper with complete 3D environment:
 - **Environment**: City preset for realistic reflections
 - **OrbitControls**: Camera interaction with constrained polar angles and distance
 - **Ground Plane**: Shadow-receiving surface
-- **Character Integration**: MayaCharacter with animation and audio amplitude sync
+- **Character Integration**: VRMCharacter (NEW) with animation and audio amplitude sync
 
 **Configuration:**
 - Camera position: [0, 1.5, 4], FOV: 50
@@ -103,28 +107,42 @@ Scene wrapper component:
 - **Styling**: Full width/height container
 - **Pattern**: Wrapper component for future extensibility
 
-### MayaCharacter (src/components/3d/MayaCharacter.tsx)
-3D animated character with the following features:
+### VRMCharacter (src/components/3d/VRMCharacter.tsx) - NEW
+VRM-based 3D character with bone-based animations:
+- **VRM Loading**: GLTFLoader with VRMLoaderPlugin (@pixiv/three-vrm v3.4.4)
+- **Model File**: Loads `/Maya.vrm` from public folder (~15MB VRoid Studio model)
+- **6 Animation States**: idle, talking, wave, nod, thinking, pointing
+- **Bone-Based Animation**: Uses VRM humanoid bones
+  - `head` - Head rotation for nod, thinking, idle sway
+  - `jaw` - Jaw rotation for talking animation
+  - `rightUpperArm` - Upper arm rotation for wave, pointing, thinking
+  - `rightLowerArm` - Lower arm rotation for wave, pointing, thinking
+  - `chest` - Chest rotation for breathing animation
+- **Bone Caching**: References cached on load for performance
+- **VRM Update**: Calls `vrm.update(delta)` every frame
+- **Error Handling**: Graceful fallback on load failure
+
+**Animation States:**
+- `idle` - Breathing (chest) + subtle head sway
+- `talking` - Jaw movement synced to audioAmplitude or simulated wave
+- `pointing` - Right arm extended forward (upperArm: z=-1.5, x=-0.3, lowerArm: x=-1.5)
+- `wave` - Right arm wave gesture (upperArm: z=-2.0, lowerArm oscillating)
+- `nod` - Head nodding (rotation.x oscillating at 15rad/s)
+- `thinking` - Hand to chin pose (upperArm: z=-0.8, x=-1.2, lowerArm: x=-1.0, head: z=0.15)
+
+**Key Refs:**
+- `vrmRef` - VRM instance
+- `headBoneRef`, `jawBoneRef`, `rightUpperArmRef`, `rightLowerArmRef`, `chestBoneRef` - Cached bones
+
+### MayaCharacter (src/components/3d/MayaCharacter.tsx) - UNUSED
+Procedural character with primitive shapes - kept as fallback but not used:
+- **Status**: Component exists but not imported in Scene.tsx
 - **6 Animation States**: idle, talking, wave, nod, thinking, pointing
 - **Procedural Animation**: Uses Three.js useFrame hook for smooth animations
 - **Automatic Blinking**: Random eye blinks every 3-5 seconds
 - **Breathing Effect**: Subtle vertical movement
 - **Audio Sync**: Jaw movement synced to audio amplitude during talking
 - **Modular Materials**: Reusable skin, clothing, and dark materials
-
-**Animation States:**
-- `idle` - Default state with breathing and head sway
-- `talking` - Jaw movement synchronized to audio amplitude (or simulated wave)
-- `pointing` - Right arm extended forward and up (-1.8rad z-rotation, -0.5rad x-rotation)
-- `wave` - Right arm wave gesture with oscillating motion
-- `nod` - Head nodding motion (15rad speed)
-- `thinking` - Hand to chin pose with head tilt (0.15rad z-rotation)
-
-**Key Refs:**
-- `characterRef` - Main character group (position)
-- `headGroupRef` - Head group (rotation)
-- `jawRef` - Jaw mesh (talking animation)
-- `armLeftRef`, `armRightRef` - Arm meshes (gestures)
 
 ### Layout (src/components/layout/Layout.tsx)
 Responsive split-screen layout:
@@ -345,11 +363,14 @@ Multi-stage build:
 ### Phase 1: Foundation ✅
 - React + TypeScript + Vite project
 - Three.js + React Three Fiber setup
+- **@pixiv/three-vrm v3.4.4 for VRM support (NEW)**
 - Zustand store for state management
 - Tailwind CSS with Maya design system
 - Responsive split layout (Layout.tsx)
 - 3D scene with lighting, environment, controls (Scene.tsx, Viewport3D.tsx)
-- Maya character with 6 animations (MayaCharacter.tsx)
+- **VRMCharacter with bone-based animations (NEW)**
+- MayaCharacter.tsx kept as fallback (UNUSED)
+- **public/Maya.vrm (~15MB VRoid Studio model) (NEW)**
 - Code splitting configured
 - Path aliases (@/) configured
 
@@ -408,6 +429,17 @@ Multi-stage build:
 1. Import and use `useChat()` hook in ChatPanel.tsx
 2. Replace echo response with `await sendMessage(content)`
 3. Update suggested prompts with returned followUpPrompts
+
+## VRM Implementation Notes (NEW)
+
+**Key Points**:
+- VRM file location: `public/Maya.vrm` (~15MB)
+- Uses GLTFLoader with VRMLoaderPlugin from @pixiv/three-vrm v3.4.4
+- VRoid models face backward by default, rotated with `vrm.scene.rotation.y = Math.PI`
+- AnimationState interface unchanged - drop-in replacement for procedural character
+- All 6 animations (idle, talking, wave, nod, thinking, pointing) work identically
+- Bone references cached on load for performance
+- `vrm.update(delta)` must be called every frame for animation to work
 
 ## Future Enhancements (Phase 7+)
 

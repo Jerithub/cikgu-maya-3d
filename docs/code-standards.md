@@ -1,19 +1,20 @@
 # Code Standards & Conventions
 
-**Last Updated:** 2025-12-27 (MVP Complete - All 7 Phases)
+**Last Updated:** 2025-12-29 (VRM Integration Complete)
 **Project:** Cikgu Maya 3D
 
 ## Table of Contents
 1. [TypeScript Standards](#typescript-standards)
 2. [React Component Standards](#react-component-standards)
 3. [3D Graphics Standards](#3d-graphics-standards)
-4. [State Management Standards](#state-management-standards)
-5. [Styling Standards](#styling-standards)
-6. [File Organization](#file-organization)
-7. [Naming Conventions](#naming-conventions)
-8. [Code Quality](#code-quality)
-9. [Voice Integration Standards](#voice-integration-standards)
-10. [AI Integration Standards](#ai-integration-standards)
+4. [VRM Integration Standards](#vrm-integration-standards)
+5. [State Management Standards](#state-management-standards)
+6. [Styling Standards](#styling-standards)
+7. [File Organization](#file-organization)
+8. [Naming Conventions](#naming-conventions)
+9. [Code Quality](#code-quality)
+10. [Voice Integration Standards](#voice-integration-standards)
+11. [AI Integration Standards](#ai-integration-standards)
 
 ## TypeScript Standards
 
@@ -291,6 +292,126 @@ if (ref.current) {
 
 // ❌ BAD: Untyped ref
 const ref = useRef() // any type
+```
+
+## VRM Integration Standards
+
+### VRM Loading
+
+**RULE**: Use GLTFLoader with VRMLoaderPlugin, handle errors gracefully
+
+```typescript
+// ✅ GOOD: VRM loading with error handling
+const loader = new GLTFLoader()
+loader.register((parser: any) => new VRMLoaderPlugin(parser))
+
+loader.load(
+  '/Maya.vrm',
+  (gltf: GLTF) => {
+    const vrm = gltf.userData.vrm as VRM | undefined
+    if (!vrm) {
+      setError('No VRM data found in file')
+      return
+    }
+
+    // Clean up previous VRM
+    if (vrmRef.current) {
+      vrmRef.current.scene.removeFromParent()
+    }
+
+    VRMUtils.removeUnnecessaryVertices(gltf.scene)
+    VRMUtils.removeUnnecessaryJoints(gltf.scene)
+
+    vrmRef.current = vrm
+    vrm.scene.rotation.y = Math.PI // VRoid models face backward
+    vrm.scene.position.y = 0
+
+    // Cache bone references
+    headBoneRef.current = vrm.humanoid.getNormalizedBoneNode('head')
+    jawBoneRef.current = vrm.humanoid.getNormalizedBoneNode('jaw')
+    // ...
+
+    setVrmLoaded(true)
+  },
+  undefined,
+  (err: unknown) => {
+    console.error('Error loading VRM:', err)
+    setError('Failed to load VRM file')
+  }
+)
+```
+
+### VRM Update Loop
+
+**RULE**: Call vrm.update(delta) every frame for animation to work
+
+```typescript
+// ✅ GOOD: VRM update in useFrame
+useFrame((state, delta) => {
+  if (!vrmRef.current || !vrmLoaded) return
+
+  // Apply animations to bones...
+  if (headBoneRef.current) {
+    headBoneRef.current.rotation.x = Math.sin(time * 15) * 0.25
+  }
+
+  // CRITICAL: Update VRM every frame
+  vrmRef.current.update(delta)
+})
+```
+
+### Bone Animation
+
+**RULE**: Cache bone references on load, use lerp for smooth transitions
+
+```typescript
+// ✅ GOOD: Cached bone references
+const headBoneRef = useRef<THREE.Object3D | null>(null)
+const jawBoneRef = useRef<THREE.Object3D | null>(null)
+
+useEffect(() => {
+  // ... load VRM
+  headBoneRef.current = vrm.humanoid.getNormalizedBoneNode('head')
+  jawBoneRef.current = vrm.humanoid.getNormalizedBoneNode('jaw')
+}, [])
+
+// Smooth animation with lerp
+if (jawBoneRef.current) {
+  jawBoneRef.current.rotation.x = THREE.MathUtils.lerp(
+    jawBoneRef.current.rotation.x,
+    targetRotation,
+    0.3
+  )
+}
+```
+
+### VRM File Management
+
+**RULE**: Store VRM files in public/ folder, reference with absolute path
+
+```typescript
+// ✅ GOOD: Public folder path
+loader.load('/Maya.vrm', onSuccess, onProgress, onError)
+
+// ❌ BAD: Relative path or src import
+loader.load('../assets/Maya.vrm', ...) // Won't work in production
+import mayaVrm from '../assets/Maya.vrm' // Don't bundle VRM files
+```
+
+### Cleanup
+
+**RULE**: Remove VRM from scene on unmount
+
+```typescript
+useEffect(() => {
+  // Load VRM...
+
+  return () => {
+    if (vrmRef.current) {
+      vrmRef.current.scene.removeFromParent()
+    }
+  }
+}, [])
 ```
 
 ## State Management Standards

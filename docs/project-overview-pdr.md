@@ -1,12 +1,12 @@
 # Project Overview & Product Development Requirements (PDR)
 
-**Last Updated:** 2025-12-27
+**Last Updated:** 2025-12-29
 **Project:** Cikgu Maya 3D
 **Version:** 0.0.0
 
 ## Executive Summary
 
-Cikgu Maya 3D is an interactive educational assistant featuring a procedurally animated 3D character. The application provides an engaging learning experience through real-time chat interactions with a virtual teacher who can express emotions and perform contextual animations.
+Cikgu Maya 3D is an interactive educational assistant featuring a **VRM-based 3D character** using @pixiv/three-vrm. The application provides an engaging learning experience through real-time chat interactions with a virtual teacher who can express emotions and perform contextual bone-based animations.
 
 ## Vision Statement
 
@@ -28,7 +28,7 @@ To create an accessible, engaging, and pedagogically effective 3D virtual teachi
 ## Functional Requirements
 
 ### Phase 1: Foundation (COMPLETED ✅)
-**Status**: Complete as of 2025-12-27
+**Status**: Complete as of 2025-12-27 | Updated 2025-12-29 with VRM integration
 
 **FR-1.1 Project Setup**
 - [x] Initialize React + TypeScript + Vite project
@@ -37,11 +37,15 @@ To create an accessible, engaging, and pedagogically effective 3D virtual teachi
 - [x] Configure path aliases (@/*) in tsconfig and vite
 - [x] Set up code splitting for vendors (react, three, state)
 
-**FR-1.2 3D Character Base**
-- [x] Create procedural Maya character with primitive shapes
+**FR-1.2 3D Character Base (UPDATED: VRM Integration)**
+- [x] Create procedural Maya character with primitive shapes (MayaCharacter.tsx - UNUSED)
+- [x] **NEW: Create VRMCharacter.tsx with @pixiv/three-vrm v3.4.4**
+- [x] **NEW: Load /Maya.vrm from public folder (VRoid Studio model, ~15MB)**
+- [x] **NEW: Implement bone-based animations using humanoid bones**
+- [x] **NEW: Cache bone references (head, jaw, rightUpperArm, rightLowerArm, chest)**
 - [x] Implement 6 base animations: idle, talking, wave, nod, thinking, pointing
-- [x] Add automatic eye blinking (every 3-5 seconds)
-- [x] Implement breathing animation
+- [x] Breathing animation (via chest bone)
+- [x] Automatic eye blinking (VRoid models handle this natively)
 
 **FR-1.3 State Management**
 - [x] Set up Zustand store for chat state
@@ -54,11 +58,12 @@ To create an accessible, engaging, and pedagogically effective 3D virtual teachi
 - [x] Define color palette and typography
 - [x] Mobile-responsive design
 
-**FR-1.5 3D Scene Architecture**
+**FR-1.5 3D Scene Architecture (UPDATED)**
 - [x] Create Scene.tsx with Canvas, lighting, environment
 - [x] Add OrbitControls for camera interaction
 - [x] Configure three-point lighting system
 - [x] Create Viewport3D.tsx wrapper component
+- [x] **NEW: Update Scene.tsx to use VRMCharacter instead of MayaCharacter**
 - [x] Integrate audio amplitude for talking animation sync
 
 ### Phase 2: Chat Interface (COMPLETED ✅)
@@ -232,6 +237,7 @@ To create an accessible, engaging, and pedagogically effective 3D virtual teachi
 ### Dependencies
 - React 18+ (Concurrent features)
 - Three.js 0.170+ (WebGL 2 required)
+- **@pixiv/three-vrm 3.4.4** (VRM model loading and animation)
 - Modern browser with ES2020 support
 
 ### Platform Limitations
@@ -304,6 +310,7 @@ To create an accessible, engaging, and pedagogically effective 3D virtual teachi
 
 | Date | Version | Changes | Author |
 |------|---------|---------|--------|
+| 2025-12-29 | 1.1.0 | VRM INTEGRATION: Added @pixiv/three-vrm 3.4.4, VRMCharacter.tsx with bone-based animations, /public/Maya.vrm (15MB), Scene.tsx updated to use VRMCharacter, MayaCharacter.tsx kept as fallback (unused), same AnimationState interface (no breaking changes) | docs-manager |
 | 2025-12-27 | 1.0.0 | MVP COMPLETE: All 7 phases done. Phase 3-6 additions: Mock AI Engine (7 categories), Voice Integration (Web Speech API, en-MY), useChat hook, voice toggle, deployment configs (Docker, nginx, Railway) | docs-manager |
 | 2025-12-27 | 0.0.2 | Phase 2 completion: Chat interface with 7 components (ChatPanel, ChatHeader, MessageList, MessageBubble, ChatInput, SuggestedPrompts, TypingIndicator), StatusBadge, lucide-react, echo responses | docs-manager |
 | 2025-12-27 | 0.0.1 | Phase 1.5 completion: Scene.tsx, Viewport3D.tsx, pointing animation, audio sync, path aliases, code splitting | docs-manager |

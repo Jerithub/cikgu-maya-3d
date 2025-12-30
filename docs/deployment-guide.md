@@ -1,8 +1,8 @@
 # Deployment Guide - Cikgu Maya 3D
 
-**Last Updated:** 2025-12-27
+**Last Updated:** 2025-12-29
 **Project:** Cikgu Maya 3D
-**Version:** 0.0.0
+**Version:** 1.1.0
 
 ---
 
@@ -44,6 +44,7 @@ netlify deploy --prod
 ```bash
 npm run build
 # Upload 'dist/' folder to your static host
+# IMPORTANT: Include public/ folder contents (Maya.vrm)
 ```
 
 ---
@@ -56,6 +57,8 @@ npm run preview
 ```
 
 Visit `http://localhost:4173`
+
+**Note**: VRM file (`public/Maya.vrm`) is served from the public folder.
 
 ---
 
@@ -72,9 +75,30 @@ VITE_GOOGLE_TTS_API_KEY=xxx
 
 ## Performance Notes
 
-- Build size: ~1.1MB (gzipped: ~300KB)
-- Initial load: <3s on 4G
-- 3D viewport: 60 FPS on modern devices
+- **Build size**: ~1.2MB JS (gzipped: ~350KB, UPDATED with VRM library)
+- **VRM Asset**: ~15MB (public/Maya.vrm, loaded separately via HTTP)
+- **Initial load**: <3s on 4G (excluding VRM file)
+- **VRM Load Time**: ~5-10s on 4G (first time, then cached)
+- **3D viewport**: 60 FPS on modern devices
+
+---
+
+## Asset Deployment
+
+### Public Folder Assets
+
+The application serves static assets from the `public/` folder:
+
+```
+public/
+└── Maya.vrm    (~15MB VRM character model)
+```
+
+**Deployment Notes**:
+- VRM file must be included in deployment
+- File is loaded via HTTP at runtime: `loader.load('/Maya.vrm', ...)`
+- Browser caching applies after first load
+- Consider CDN for VRM file in production
 
 ---
 
@@ -84,4 +108,6 @@ VITE_GOOGLE_TTS_API_KEY=xxx
 |-------|----------|
 | Voice not working | Browser doesn't support Web Speech API (use Chrome/Edge/Safari) |
 | 3D not loading | Check browser supports WebGL |
+| VRM file not found | Ensure public/Maya.vrm is deployed and accessible |
 | Deploy fails | Verify Dockerfile and nginx.conf are present |
+| Slow initial load | VRM file is ~15MB, consider CDN or compression |
