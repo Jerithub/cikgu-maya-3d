@@ -30,7 +30,7 @@ export function ChatPanel() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-glass-white backdrop-blur-md border-l border-glass-border shadow-glass">
       {/* Header */}
       <ChatHeader />
 

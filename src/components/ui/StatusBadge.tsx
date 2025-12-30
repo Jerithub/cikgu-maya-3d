@@ -7,27 +7,33 @@ interface StatusBadgeProps {
 export function StatusBadge({ status }: StatusBadgeProps) {
   const config = {
     ready: {
-      color: 'bg-maya-success',
-      label: 'Ready',
-      dotColor: 'bg-green-500',
+      bgColor: 'bg-maya-success/20',
+      textColor: 'text-maya-success',
+      borderColor: 'border-maya-success/30',
+      label: 'Ready to help',
+      dotColor: 'bg-maya-success',
     },
     thinking: {
-      color: 'bg-maya-warning',
+      bgColor: 'bg-maya-warning/20',
+      textColor: 'text-maya-warning',
+      borderColor: 'border-maya-warning/30',
       label: 'Thinking...',
-      dotColor: 'bg-yellow-500 animate-pulse',
+      dotColor: 'bg-maya-warning animate-pulse',
     },
     speaking: {
-      color: 'bg-maya-info',
+      bgColor: 'bg-maya-info/20',
+      textColor: 'text-maya-info',
+      borderColor: 'border-maya-info/30',
       label: 'Speaking...',
-      dotColor: 'bg-blue-500 animate-pulse',
+      dotColor: 'bg-maya-info animate-pulse',
     },
   }
 
-  const { color, label, dotColor } = config[status]
+  const { bgColor, textColor, borderColor, label, dotColor } = config[status]
 
   return (
-    <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full ${color} text-white text-xs font-medium`}>
-      <span className={`w-2 h-2 rounded-full ${dotColor}`}></span>
+    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${bgColor} ${textColor} border ${borderColor} backdrop-blur-sm text-xs font-medium shadow-sm`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`}></span>
       <span>{label}</span>
     </div>
   )

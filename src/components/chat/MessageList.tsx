@@ -23,16 +23,20 @@ export function MessageList() {
     >
       {/* Welcome message */}
       {messages.length === 0 && (
-        <div className="flex flex-col items-center justify-center h-full text-center space-y-3">
-          <div className="w-16 h-16 bg-maya-primary rounded-full flex items-center justify-center">
-            <span className="text-3xl">👋</span>
+        <div className="flex flex-col items-center justify-center h-full text-center space-y-4 animate-fade-in">
+          <div className="relative">
+            <div className="w-20 h-20 bg-gradient-to-br from-maya-primary via-maya-primary-light to-maya-secondary rounded-full flex items-center justify-center shadow-glow-primary ring-4 ring-white/30 backdrop-blur-sm">
+              <span className="text-4xl">👋</span>
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-maya-success rounded-full border-3 border-white shadow-md"></div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold text-maya-text-primary">
-              Welcome! I'm Cikgu Maya
+          <div className="bg-glass-white-strong backdrop-blur-md px-6 py-4 rounded-2xl border border-glass-border-strong shadow-glass">
+            <h2 className="text-xl font-heading font-semibold text-maya-text-primary">
+              Selamat datang! I'm Cikgu Maya
             </h2>
-            <p className="text-sm text-maya-text-secondary mt-1">
-              Your AI teaching assistant. How can I help you today?
+            <p className="text-sm text-maya-text-secondary mt-2 leading-relaxed">
+              Your AI teaching assistant for Malaysian educators.<br />
+              Ask me about your students, classes, or teaching strategies.
             </p>
           </div>
         </div>

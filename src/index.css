@@ -1,7 +1,105 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
+/* Tailwind v4 Custom Theme */
+@theme {
+  /* Maya Primary Colors */
+  --color-maya-primary: #4a90e2;
+  --color-maya-primary-light: #7cb3f5;
+  --color-maya-primary-dark: #2e6ab8;
+
+  /* Maya Secondary Colors */
+  --color-maya-secondary: #50c878;
+  --color-maya-secondary-light: #7fda9a;
+  --color-maya-secondary-dark: #3aa05a;
+
+  /* Maya Accent */
+  --color-maya-accent: #ff6b9d;
+
+  /* Neutral Colors */
+  --color-maya-bg-light: #f8fafc;
+  --color-maya-bg-gray: #f1f5f9;
+  --color-maya-text-primary: #1e293b;
+  --color-maya-text-secondary: #64748b;
+  --color-maya-text-muted: #94a3b8;
+
+  /* Semantic Colors */
+  --color-maya-success: #10b981;
+  --color-maya-warning: #f59e0b;
+  --color-maya-error: #ef4444;
+  --color-maya-info: #3b82f6;
+
+  /* Glassmorphism Background Colors */
+  --color-glass-white: rgb(255 255 255 / 0.75);
+  --color-glass-white-strong: rgb(255 255 255 / 0.85);
+  --color-glass-white-subtle: rgb(255 255 255 / 0.60);
+  --color-glass-primary: rgb(74 144 226 / 0.90);
+  --color-glass-primary-light: rgb(124 179 245 / 0.85);
+  --color-glass-secondary: rgb(80 200 120 / 0.90);
+
+  /* Glass Border Colors */
+  --color-glass-border: rgb(255 255 255 / 0.18);
+  --color-glass-border-strong: rgb(255 255 255 / 0.30);
+
+  /* Font Families */
+  --font-family-sans: "DM Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-family-heading: "DM Sans", "Poppins", "Inter", sans-serif;
+
+  /* Backdrop Blur */
+  --blur-xs: 2px;
+  --blur-sm: 4px;
+  --blur: 8px;
+  --blur-md: 12px;
+  --blur-lg: 16px;
+  --blur-xl: 24px;
+  --blur-2xl: 40px;
+  --blur-3xl: 64px;
+
+  /* Box Shadows - Glass Effects */
+  --shadow-glass: 0 8px 32px 0 rgb(31 38 135 / 0.15);
+  --shadow-glass-lg: 0 12px 40px 0 rgb(31 38 135 / 0.20);
+  --shadow-glass-sm: 0 4px 16px 0 rgb(31 38 135 / 0.10);
+  --shadow-glow-primary: 0 0 20px rgb(74 144 226 / 0.3);
+  --shadow-glow-secondary: 0 0 20px rgb(80 200 120 / 0.3);
+
+  /* Animations */
+  --animate-fade-in: fade-in 0.3s ease-in-out;
+  --animate-slide-up: slide-up 0.4s ease-out;
+  --animate-scale-in: scale-in 0.2s ease-out;
+}
+
+/* Animation Keyframes */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Global Styles */
 * {
   margin: 0;
   padding: 0;
@@ -9,9 +107,7 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-family-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow: hidden;
